@@ -8,7 +8,7 @@ def main():
     model =util.define_model(vocab_size, max_length)
 
     # define checkpoint callback
-    file_path = 'model/model-ep{epoch:03d}-loss{loss:.3f}-val_loss{val_loss:.3f}.h5'
+    file_path = 'models/model-ep{epoch:03d}-loss{loss:.3f}-val_loss{val_loss:.3f}.h5'
     checkpoint = ModelCheckpoint(file_path, monitor='val_loss', verbose=1, save_best_only=True, mode='min')
 
     # Train Model
