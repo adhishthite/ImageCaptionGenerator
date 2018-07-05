@@ -150,7 +150,7 @@ def define_model(vocab_size, max_length):
 
     # Combine [image, seq] [word]
     model = Model(inputs=[inputs1, inputs2], outputs=outputs)
-    model.compile(loss='categorical_crossentropy', optimizer='adam', metrics='accuracy')
+    model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
 
     # summarize model
     print(model.summary())
