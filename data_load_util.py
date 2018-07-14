@@ -7,10 +7,15 @@ from keras.utils import plot_model
 from keras.models import Model
 from keras.layers import Input, Dense, LSTM, Embedding, Dropout
 from keras.layers.merge import add
+from nltk.translate.bleu_score import corpus_bleu
+from numpy import argmax
+from keras.applications.vgg16 import VGG16
+from keras.preprocessing.image import load_img, img_to_array
+from keras.applications.vgg16 import preprocess_input
+
 
 # Load document
 def load_doc(filename):
-
     # Read only mode
     file = open(filename, 'r')
     text = file.read()
@@ -20,7 +25,6 @@ def load_doc(filename):
 
 # Load Dataset
 def load_set(filename):
-
     doc = load_doc(filename)
     dataset = list()
 
@@ -37,7 +41,6 @@ def load_set(filename):
 
 # Load Cleaned Descriptions
 def load_clean_descriptions(filename, dataset):
-
     doc = load_doc(filename)
     descriptions = dict()
 
@@ -111,7 +114,6 @@ def create_sequences(tokenizer, max_length, descriptions, photos, vocab_size):
 
             # Split one sequence into multiple X,y pairs
             for i in range(1, len(seq)):
-
                 # Split into I/O pair
                 in_seq, out_seq = seq[:i], seq[i]
 
@@ -158,6 +160,70 @@ def define_model(vocab_size, max_length):
     return model
 
 
+# Integer -> Word Mapping
+def word_for_id(integer, tokenizer):
+    for word, index in tokenizer.word_index.items():
+        if index == integer:
+            return word
+    return None
+
+
+# Generate Image Description
+def generate_desc(model, tokenizer, photo, max_length):
+    # seed the generation process
+    in_text = 'startseq'
+
+    # Iterate over whole sequence length
+    for i in range(max_length):
+        # integer encode input sequence
+        sequence = tokenizer.texts_to_sequences([in_text])[0]
+
+        # pad input
+        sequence = pad_sequences([sequence], maxlen=max_length)
+
+        # predict next word
+        yhat = model.predict([photo, sequence], verbose=0)
+
+        # convert probability to integer
+        yhat = argmax(yhat)
+
+        # map integer to word
+        word = word_for_id(yhat, tokenizer)
+
+        # stop if we cannot map the word
+        if word is None:
+            break
+
+        # append as input for generating the next word
+        in_text += ' ' + word
+
+        # stop if we predict the end of the sequence
+        if word == 'endseq':
+            break
+    return in_text
+
+
+# Evaluate model performance
+def evaluate_model(model, descriptions, photos, tokenizer, max_length):
+    actual, predicted = list(), list()
+
+    # step over the whole set
+    for key, desc_list in descriptions.items():
+        # generate description
+        yhat = generate_desc(model, tokenizer, photos[key], max_length)
+
+        # store actual and predicted
+        references = [d.split() for d in desc_list]
+        actual.append(references)
+        predicted.append(yhat.split())
+
+    # calculate BLEU score
+    print('BLEU-1: %f' % corpus_bleu(actual, predicted, weights=(1.0, 0, 0, 0)))
+    print('BLEU-2: %f' % corpus_bleu(actual, predicted, weights=(0.5, 0.5, 0, 0)))
+    print('BLEU-3: %f' % corpus_bleu(actual, predicted, weights=(0.3, 0.3, 0.3, 0)))
+    print('BLEU-4: %f' % corpus_bleu(actual, predicted, weights=(0.25, 0.25, 0.25, 0.25)))
+
+
 # Load Training Set
 def load_training_set():
     print('\nLoading Train Set\n')
@@ -185,14 +251,14 @@ def load_training_set():
     print('Description Length:\t' + str(max_length))
 
     # Prepare sequences
-    X1train, X2train, ytrain = create_sequences(tokenizer, max_length, train_descriptions, train_features, vocab_size=vocab_size)
+    X1train, X2train, ytrain = create_sequences(tokenizer, max_length, train_descriptions, train_features,
+                                                vocab_size=vocab_size)
 
     return X1train, X2train, ytrain, vocab_size, max_length, tokenizer
 
 
 # Load Test Set
 def load_test_set(vocab_size, max_length, tokenizer):
-
     print('\nLoading Test Set\n')
 
     # Load Test set
@@ -208,30 +274,39 @@ def load_test_set(vocab_size, max_length, tokenizer):
     test_features = load_photo_features('data/features.pkl', test)
     print('Photos (Test):\t' + str(len(test_features)))
 
-    # # Prepare tokenizer
-    # tokenizer = create_tokenizer(test_descriptions)
-    # vocab_size = len(tokenizer.word_index) + 1
-    # print('Vocabulary Size:\t' + str(vocab_size))
-    #
-    # # Get maximum sequence length
-    # max_length = get_max_length(test_descriptions)
-    # print('Description Length:\t' + str(max_length))
-
     # Prepare sequences
-    X1test, X2test, ytest = create_sequences(tokenizer, max_length, test_descriptions, test_features, vocab_size=vocab_size)
+    X1test, X2test, ytest = create_sequences(tokenizer, max_length, test_descriptions, test_features,
+                                             vocab_size=vocab_size)
 
-    return X1test, X2test, ytest
+    return X1test, X2test, ytest, test_descriptions, test_features
+
+
+# Extract photo feature
+def extract_features(filename):
+    model = VGG16()
+    model.layers.pop()
+    model = Model(inputs=model.inputs, outputs=model.layers[-1].output)
+
+    # Load photo
+    image = load_img(filename, target_size=(224, 224))
+    image = img_to_array(image)
+    image = image.reshape((1, image.shape[0], image.shape[1], image.shape[2]))
+    image = preprocess_input(image)
+
+    feature = model.predict(image, verbose=0)
+    return feature
 
 
 # Init Data Function
 def init_data_load():
     print('\nData Load Initialized\n')
     X1train, X2train, ytrain, vocab_size, max_length, tokenizer = load_training_set()
-    X1test, X2test, ytest = load_test_set(vocab_size, max_length, tokenizer)
+    X1test, X2test, ytest, test_descriptions, test_features = load_test_set(vocab_size, max_length, tokenizer)
 
     print('\nData Load Ended\n')
 
-    return X1train, X2train, ytrain, vocab_size, max_length, tokenizer, X1test, X2test, ytest
+    return X1train, X2train, ytrain, vocab_size, max_length, tokenizer,\
+           X1test, X2test, ytest, test_descriptions, test_features
 
 
 if __name__ == "__main__":

@@ -4,8 +4,10 @@ from keras.callbacks import ModelCheckpoint
 
 def main():
 
-    X1train, X2train, ytrain, vocab_size, max_length, tokenizer, X1test, X2test, ytest = util.init_data_load()
-    model =util.define_model(vocab_size, max_length)
+    X1train, X2train, ytrain, vocab_size, max_length, tokenizer, X1test, X2test, ytest,\
+    test_descriptions, test_features = util.init_data_load()
+
+    model = util.define_model(vocab_size, max_length)
 
     # define checkpoint callback
     file_path = 'models/model-ep{epoch:03d}-loss{loss:.3f}-val_loss{val_loss:.3f}.h5'
