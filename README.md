@@ -4,7 +4,7 @@
 ---
 ### Caption Generator
 <p align="center">
-	<img src='test/example_001.jpg' alt='Test Image'> 
+	<img src='/test/example_001.jpg' alt='Test Image'> 
 	<br/>
 	<i>
 		black dog is running through the water
