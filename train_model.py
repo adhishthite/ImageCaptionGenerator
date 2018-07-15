@@ -15,7 +15,7 @@ def main():
 
     # Train Model
     model.fit([X1train, X2train], ytrain, epochs=5, verbose=1, callbacks=[checkpoint],
-              validation_data=([X1test, X2test], ytest), shuffle=True)
+              validation_data=([X1test, X2test], ytest), shuffle=True, batch_size=256)
 
 if __name__ == "__main__":
     main()
