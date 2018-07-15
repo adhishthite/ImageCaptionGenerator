@@ -1,5 +1,6 @@
 from numpy import array
 from pickle import load
+from keras import optimizers
 from keras.preprocessing.text import Tokenizer
 from keras.preprocessing.sequence import pad_sequences
 from keras.utils import to_categorical
@@ -152,7 +153,8 @@ def define_model(vocab_size, max_length):
 
     # Combine [image, seq] [word]
     model = Model(inputs=[inputs1, inputs2], outputs=outputs)
-    model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
+    optimizer = optimizers.RMSprop(lr=0.003)
+    model.compile(loss='categorical_crossentropy', optimizer=optimizer, metrics=['accuracy'])
 
     # summarize model
     print(model.summary())
